@@ -14,9 +14,9 @@ def load_ip_addresses(filename):
         print(f"An error occurred while reading the file: {e}")
         return []
 
-def find_matching_ips(ip_list, ip_range):
+def find_matching_ips(ip_list, partial_ip):
     """Find IP addresses in the list that match the given IP range"""
-    return [ip for ip in ip_list if ip.startswith(ip_range)]
+    return [ip for ip in ip_list if ip.startswith(partial_ip)]
 
 def main():
     filename = input("Enter the filename containing IP addresses: ")
