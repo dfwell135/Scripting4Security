@@ -1,0 +1,101 @@
+#!/usr/bin/python3
+
+import sys
+import socket
+from datetime import datetime
+
+print("PORT SCANNER")
+print("-" * 50)
+
+# --- Get user input for scan parameters ---
+
+# Ask for the target IP address or hostname
+target_input = input("Enter target IP address or hostname: ").strip()
+
+# Ask for protocol choice (TCP or UDP)
+protocol = input("Scan TCP or UDP? (tcp/udp): ").strip().lower()
+while protocol not in ("tcp", "udp"):
+    protocol = input("Invalid choice. Please enter 'tcp' or 'udp': ").strip().lower()
+
+# Ask for starting port, with basic validation
+while True:
+    try:
+        start_port = int(input("Enter starting port (1-65535): ").strip())
+        if 1 <= start_port <= 65535:
+            break
+        print("Port must be between 1 and 65535.")
+    except ValueError:
+        print("Please enter a valid integer.")
+
+# Ask for ending port, ensuring it's >= start_port
+while True:
+    try:
+        end_port = int(input("Enter ending port (1-65535): ").strip())
+        if start_port <= end_port <= 65535:
+            break
+        print(f"Port must be between {start_port} and 65535.")
+    except ValueError:
+        print("Please enter a valid integer.")
+
+# --- Resolve the hostname/IP ---
+try:
+    target = socket.gethostbyname(target_input)
+except socket.gaierror:
+    print("\nHostname Could Not Be Resolved !!!!")
+    sys.exit()
+
+# --- Print scan banner/info ---
+print("-" * 50)
+print("Scanning Target: " + target)
+print("Protocol: " + protocol.upper())
+print("Port Range: {} - {}".format(start_port, end_port))
+print("Scanning started at: " + str(datetime.now()))
+print("-" * 50)
+
+# --- Main scanning logic ---
+try:
+    # Set a global timeout so the scan doesn't hang on unresponsive ports
+    socket.setdefaulttimeout(1)
+
+    for port in range(start_port, end_port + 1):
+
+        if protocol == "tcp":
+            # TCP scan: create a TCP socket and attempt a full connection
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            result = s.connect_ex((target, port))  # returns 0 if connection succeeds
+            if result == 0:
+                print("Port {} (TCP) is open".format(port))
+            s.close()
+
+        else:
+            # UDP scan: UDP is connectionless, so "openness" is inferred.
+            # We send an empty packet and see if we get an ICMP "port unreachable"
+            # error back. No error (or a response) suggests the port may be open
+            # or filtered; this method is inherently less reliable than TCP.
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.sendto(b"", (target, port))
+                s.recvfrom(1024)
+                print("Port {} (UDP) is open".format(port))
+            except socket.timeout:
+                # No response could mean open|filtered - can't be certain
+                print("Port {} (UDP) is open|filtered".format(port))
+            except ConnectionResetError:
+                # ICMP port unreachable received -> port is closed
+                pass
+            finally:
+                s.close()
+
+# --- Handle interruptions and errors gracefully ---
+except KeyboardInterrupt:
+    print("\nExiting Program !!!!")
+    sys.exit()
+except socket.gaierror:
+    print("\nHostname Could Not Be Resolved !!!!")
+    sys.exit()
+except socket.error:
+    print("\nServer not responding !!!!")
+    sys.exit()
+
+print("-" * 50)
+print("Scanning completed at: " + str(datetime.now()))
